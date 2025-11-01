@@ -8,4 +8,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Integer> {
     // 맵핑은 entity:id -> UserEntity, Integer
 
     boolean existsByUsername(String username);
+
+    UserEntity findByUsername(String username);
 }
