@@ -19,7 +19,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain (HttpSecurity http) throws Exception { // !!! 상단부터 순차 실행 -> 맨 위에서 permitAll 하면 밑에는 소용없다
         http.authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/", "/login", "/loginProc").permitAll() // 메인페이지, 로그인페이지는 모두에게
+                        .requestMatchers("/", "/login", "/loginProc", "/join", "/joinProc").permitAll() // 메인페이지, 로그인페이지는 모두에게
                         .requestMatchers("/admin").hasRole("ADMIN")
                         .requestMatchers("/my/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated() // 위 요청 외에는 인가된 사용자만
