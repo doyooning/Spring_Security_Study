@@ -16,6 +16,13 @@ public class JoinService {
     private BCryptPasswordEncoder bCryptPasswordEncoder;
 
     public void joinProcess(JoinDTO joinDTO) {
+
+        // 아이디 중복 검사
+        boolean isUser = userRepository.existsByUsername(joinDTO.getUsername());
+        if (isUser) {
+            return; // 이미 존재하는 유저이면 메서드 종료
+        }
+
         UserEntity data = new UserEntity();
 
         data.setUsername(joinDTO.getUsername());
