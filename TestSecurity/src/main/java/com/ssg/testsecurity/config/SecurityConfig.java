@@ -31,7 +31,10 @@ public class SecurityConfig {
 
         );
         // csrf 설정 - 지금은 비활성화로 (로그인이 안됨)
-        http.csrf((auth) -> auth.disable());
+//        http.csrf((auth) -> auth.disable());
+
+        http.logout((auth) -> auth.logoutUrl("/logout")
+                        .logoutSuccessUrl("/"));
 
         http.sessionManagement((auth) -> auth
                         .maximumSessions(5)
