@@ -25,7 +25,7 @@ public class JoinController {
     public String joinProcess(JoinDTO joinDTO) {
 
         System.out.println(joinDTO.getUsername());
-
+        System.out.println(joinDTO.getPassword());
         joinService.joinProcess(joinDTO);
 
         return "redirect:/login";

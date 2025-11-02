@@ -2,6 +2,7 @@ package com.ssg.testsecurity.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -34,6 +35,10 @@ public class SecurityConfig {
                         .permitAll() // 로그인되면 permitAll 상태
 
         );
+
+        // HttpBasic방식 로그인 구현
+//        http.httpBasic(Customizer.withDefaults());
+
         // csrf 설정 - 지금은 비활성화로 (로그인이 안됨)
 //        http.csrf((auth) -> auth.disable());
 
@@ -52,21 +57,21 @@ public class SecurityConfig {
 
     }
     // DB 연동 안되어 있을 때 내장된 유저 정보 만들기
-    @Bean
-    public UserDetailsService userDetailsService() {
-
-        UserDetails user1 = User.builder()
-                .username("admintest")
-                .password(bCryptPasswordEncoder().encode("admin1"))
-                .roles("ADMIN")
-                .build();
-
-        UserDetails user2 = User.builder()
-                .username("usertest")
-                .password(bCryptPasswordEncoder().encode("user1"))
-                .roles("USER")
-                .build();
-
-        return new InMemoryUserDetailsManager(user1, user2);
-    }
+//    @Bean
+//    public UserDetailsService userDetailsService() {
+//
+//        UserDetails user1 = User.builder()
+//                .username("admintest")
+//                .password(bCryptPasswordEncoder().encode("admin1"))
+//                .roles("ADMIN")
+//                .build();
+//
+//        UserDetails user2 = User.builder()
+//                .username("usertest")
+//                .password(bCryptPasswordEncoder().encode("user1"))
+//                .roles("USER")
+//                .build();
+//
+//        return new InMemoryUserDetailsManager(user1, user2);
+//    }
 }
