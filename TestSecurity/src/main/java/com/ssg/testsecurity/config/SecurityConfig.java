@@ -33,6 +33,14 @@ public class SecurityConfig {
         // csrf 설정 - 지금은 비활성화로 (로그인이 안됨)
         http.csrf((auth) -> auth.disable());
 
+        http.sessionManagement((auth) -> auth
+                        .maximumSessions(5)
+                        .maxSessionsPreventsLogin(true));
+
+        // 세션 고정 설정 -> 설정안함, 새 세션 생성, [아이디만 변경]
+        http.sessionManagement((auth) -> auth
+                    .sessionFixation().changeSessionId());
+
         return http.build();
     }
 }
