@@ -24,8 +24,8 @@ public class JoinController {
     @PostMapping("/joinProc")
     public String joinProcess(JoinDTO joinDTO) {
 
-        System.out.println(joinDTO.getUsername());
-        System.out.println(joinDTO.getPassword());
+        System.out.println("join ID: " + joinDTO.getUsername());
+        System.out.println("join PW: " + joinDTO.getPassword());
         joinService.joinProcess(joinDTO);
 
         return "redirect:/login";
