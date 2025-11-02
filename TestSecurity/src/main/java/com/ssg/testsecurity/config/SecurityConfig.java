@@ -2,6 +2,8 @@ package com.ssg.testsecurity.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -21,6 +23,15 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    // 역할 계층 구조 적용
+//    @Bean
+//    public RoleHierarchy roleHierarchy() {
+//        RoleHierarchyImpl hierarchy = new RoleHierarchyImpl();
+//        hierarchy.setHierarchy("ROLE_C > ROLE_B\n" +
+//                "ROLE_B > ROLE_A");
+//        return hierarchy;
+//    }
+
     @Bean
     public SecurityFilterChain filterChain (HttpSecurity http) throws Exception { // !!! 상단부터 순차 실행 -> 맨 위에서 permitAll 하면 밑에는 소용없다
         http.authorizeHttpRequests((auth) -> auth
@@ -29,6 +40,14 @@ public class SecurityConfig {
                         .requestMatchers("/my/**").hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated() // 위 요청 외에는 인가된 사용자만
         );
+
+//        http.authorizeHttpRequests((auth) -> auth
+//                        .requestMatchers("/login").permitAll()
+//                        .requestMatchers("/").hasAnyRole("A")
+//                        .requestMatchers("/manager").hasAnyRole("B")
+//                        .requestMatchers("/admin").hasAnyRole("C")
+//                        .anyRequest().authenticated()
+//                );
 
         http.formLogin((auth) -> auth.loginPage("/login") // 로그인 페이지를 연결해줌
                         .loginProcessingUrl("/loginProc") // 로그인이 완료되면 연결할 페이지
