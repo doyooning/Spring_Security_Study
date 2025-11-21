@@ -1,5 +1,6 @@
 package com.dynii.oauthsession.config;
 
+import com.dynii.oauthsession.service.CustomOAuth2UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -10,6 +11,13 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private final CustomOAuth2UserService customOAuth2UserService;
+
+    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
+        this.customOAuth2UserService = customOAuth2UserService;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
@@ -26,8 +34,11 @@ public class SecurityConfig {
 
         // oauth2Login은 기본적으로 다 구현이 되어있음
         // oauth2Client는 인증 인가 과정을 다 구현해주어야 함
+        // userEndPoint - 유저 정보를 받을 수 있는 userDetailsService를 등록해주는 엔드포인트
         http
-                .oauth2Login(Customizer.withDefaults());
+                .oauth2Login((oauth2) -> oauth2
+                        .userInfoEndpoint((userInfoEndpointConfig) -> userInfoEndpointConfig
+                                .userService(customOAuth2UserService)));
 
         http
                 .authorizeHttpRequests((auth) -> auth
