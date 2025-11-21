@@ -1,5 +1,6 @@
 package com.dynii.oauthsession.service;
 
+import com.dynii.oauthsession.dto.CustomOAuth2User;
 import com.dynii.oauthsession.dto.GoogleResponse;
 import com.dynii.oauthsession.dto.NaverResponse;
 import com.dynii.oauthsession.dto.OAuth2Response;
@@ -7,7 +8,9 @@ import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserServ
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.stereotype.Service;
 
+@Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
@@ -30,8 +33,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             return null;
         }
+        // 가장 기본 role이 user임을 가장하고 임의로 하드코딩
+        String role = "ROLE_USER";
+        return new CustomOAuth2User(oAuth2Response, role);
 
-
-        //추후 작성
     }
 }
