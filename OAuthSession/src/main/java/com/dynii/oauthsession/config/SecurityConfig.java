@@ -1,6 +1,5 @@
 package com.dynii.oauthsession.config;
 
-import com.dynii.oauthsession.oauth2.CustomClientRegistrationRepo;
 import com.dynii.oauthsession.service.CustomOAuth2UserService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,11 +13,9 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     private final CustomOAuth2UserService customOAuth2UserService;
-    private final CustomClientRegistrationRepo customClientRegistrationRepo;
 
-    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService, CustomClientRegistrationRepo customClientRegistrationRepo) {
+    public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
         this.customOAuth2UserService = customOAuth2UserService;
-        this.customClientRegistrationRepo = customClientRegistrationRepo;
     }
 
     @Bean
@@ -41,7 +38,6 @@ public class SecurityConfig {
         http
                 .oauth2Login((oauth2) -> oauth2
                         .loginPage("/login")
-                        .clientRegistrationRepository(customClientRegistrationRepo.clientRegistrationRepository())
                         .userInfoEndpoint((userInfoEndpointConfig) -> userInfoEndpointConfig
                                 .userService(customOAuth2UserService)));
 
