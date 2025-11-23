@@ -37,6 +37,7 @@ public class SecurityConfig {
         // userEndPoint - 유저 정보를 받을 수 있는 userDetailsService를 등록해주는 엔드포인트
         http
                 .oauth2Login((oauth2) -> oauth2
+                        .loginPage("/login")
                         .userInfoEndpoint((userInfoEndpointConfig) -> userInfoEndpointConfig
                                 .userService(customOAuth2UserService)));
 
