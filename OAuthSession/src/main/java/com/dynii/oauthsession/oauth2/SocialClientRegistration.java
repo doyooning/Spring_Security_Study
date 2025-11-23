@@ -11,8 +11,8 @@ public class SocialClientRegistration {
     public ClientRegistration naverClientRegistration() {
 
         return ClientRegistration.withRegistrationId("naver")
-                .clientId("OC7vk9rIYNZZ1hCiOxGr")
-                .clientSecret("2KJ8O6RFem")
+                .clientId("아이디")
+                .clientSecret("시크릿")
                 .redirectUri("http://localhost:8080/login/oauth2/code/naver")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .scope("name", "email")
@@ -26,8 +26,8 @@ public class SocialClientRegistration {
     public ClientRegistration googleClientRegistration() {
 
         return ClientRegistration.withRegistrationId("google")
-                .clientId("748471942962-2da66eu83lqhjqm8ta4g3r9gquh0m01r.apps.googleusercontent.com")
-                .clientSecret("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")
+                .clientId("아이디")
+                .clientSecret("시크릿")
                 .redirectUri("http://localhost:8080/login/oauth2/code/google")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .scope("profile", "email")
