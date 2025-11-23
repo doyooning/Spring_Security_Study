@@ -4,6 +4,8 @@ import com.dynii.oauthsession.dto.CustomOAuth2User;
 import com.dynii.oauthsession.dto.GoogleResponse;
 import com.dynii.oauthsession.dto.NaverResponse;
 import com.dynii.oauthsession.dto.OAuth2Response;
+import com.dynii.oauthsession.entity.UserEntity;
+import com.dynii.oauthsession.repository.UserRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
@@ -12,6 +14,14 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+
+    private final UserRepository userRepository;
+
+    public CustomOAuth2UserService(UserRepository userRepository) {
+
+        this.userRepository = userRepository;
+    }
+
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
 
@@ -33,9 +43,30 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             return null;
         }
+        String username = oAuth2Response.getProvider()+" "+oAuth2Response.getProviderId();
+        UserEntity existData = userRepository.findByUsername(username);
+
         // 가장 기본 role이 user임을 가장하고 임의로 하드코딩
         String role = "ROLE_USER";
-        return new CustomOAuth2User(oAuth2Response, role);
+        if (existData == null) {
 
+            UserEntity userEntity = new UserEntity();
+            userEntity.setUsername(username);
+            userEntity.setEmail(oAuth2Response.getEmail());
+            userEntity.setRole(role);
+
+            userRepository.save(userEntity);
+        }
+        else {
+
+            existData.setUsername(username);
+            existData.setEmail(oAuth2Response.getEmail());
+
+            role = existData.getRole();
+
+            userRepository.save(existData);
+        }
+
+        return new CustomOAuth2User(oAuth2Response, role);
     }
 }
