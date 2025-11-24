@@ -11,8 +11,8 @@ public class SocialClientRegistration {
     public ClientRegistration naverClientRegistration() {
 
         return ClientRegistration.withRegistrationId("naver")
-                .clientId("아이디")
-                .clientSecret("비밀번호")
+                .clientId("아이디입력")
+                .clientSecret("비밀번호입력")
                 .redirectUri("http://localhost:8080/login/oauth2/code/naver")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .scope("name", "email")
@@ -26,8 +26,8 @@ public class SocialClientRegistration {
     public ClientRegistration googleClientRegistration() {
 
         return ClientRegistration.withRegistrationId("google")
-                .clientId("아이디")
-                .clientSecret("비밀번호")
+                .clientId("아이디입력")
+                .clientSecret("비밀번호입력")
                 .redirectUri("http://localhost:8080/login/oauth2/code/google")
                 .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                 .scope("profile", "email")
