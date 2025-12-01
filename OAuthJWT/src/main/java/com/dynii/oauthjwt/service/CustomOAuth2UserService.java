@@ -1,8 +1,6 @@
 package com.dynii.oauthjwt.service;
 
-import com.dynii.oauthjwt.dto.GoogleResponse;
-import com.dynii.oauthjwt.dto.NaverResponse;
-import com.dynii.oauthjwt.dto.OAuth2Response;
+import com.dynii.oauthjwt.dto.*;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
