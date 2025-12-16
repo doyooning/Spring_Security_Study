@@ -2,6 +2,7 @@ package com.dynii.oauthjwt.jwt;
 
 import com.dynii.oauthjwt.dto.CustomOAuth2User;
 import com.dynii.oauthjwt.dto.UserDTO;
+import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -39,26 +40,39 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         //Authorization 헤더 검증
-        if (authorization == null) {
-
-            System.out.println("token null");
-            filterChain.doFilter(request, response);
-
-            //조건이 해당되면 메소드 종료 (필수)
-            return;
-        }
+//        if (authorization == null) {
+//
+//            System.out.println("token null");
+//            filterChain.doFilter(request, response);
+//
+//            //조건이 해당되면 메소드 종료 (필수)
+//            return;
+//        }
 
         //토큰
         String token = authorization;
 
         //토큰 소멸 시간 검증
-        if (jwtUtil.isExpired(token)) {
+        if (token != null) {
+            try {
+                // 만료 여부 판단 → 실제로는 parse 중 예외 발생
+                jwtUtil.isExpired(token);
 
-            System.out.println("token expired");
-            filterChain.doFilter(request, response);
+            } catch (ExpiredJwtException e) {
 
-            //조건이 해당되면 메소드 종료 (필수)
-            return;
+                System.out.println("token expired");
+
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("""
+            {
+              "error": "TOKEN_EXPIRED",
+              "message": "토큰이 만료되었습니다."
+            }
+        """);
+
+                return; // 🔥 여기서 반드시 종료
+            }
         }
 
         //토큰에서 username과 role 획득
