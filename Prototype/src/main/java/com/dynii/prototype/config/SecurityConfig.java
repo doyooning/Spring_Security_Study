@@ -1,5 +1,6 @@
 package com.dynii.prototype.config;
 
+import com.dynii.prototype.jwt.CustomLogoutFilter;
 import com.dynii.prototype.jwt.JWTFilter;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.oauth2.CustomSuccessHandler;
@@ -13,6 +14,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -77,6 +79,9 @@ public class SecurityConfig {
         //JWTFilter 추가
         http
                 .addFilterBefore(new JWTFilter(jwtUtil, refreshRepository), UsernamePasswordAuthenticationFilter.class);
+
+        http
+                .addFilterBefore(new CustomLogoutFilter(jwtUtil, refreshRepository), LogoutFilter.class);
 
         //oauth2
         http
