@@ -34,7 +34,7 @@ public class JWTFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
 
         // 헤더에서 access키에 담긴 토큰을 꺼냄
-        String accessToken = request.getHeader("access");
+        String accessToken = resolveToken(request);
 
         // 토큰이 없다면 다음 필터로 넘김
         if (accessToken == null) {
@@ -91,5 +91,44 @@ public class JWTFilter extends OncePerRequestFilter {
         SecurityContextHolder.getContext().setAuthentication(authToken);
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        // 1) Authorization: Bearer xxx
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) {
+            log.info("Bearer token found");
+            return auth.substring(7);
+        }
+
+        // 2) 기존 access 헤더도 지원(필요하면 유지)
+        String legacy = request.getHeader("access");
+        if (legacy != null && !legacy.isBlank()){
+            log.info("legacy token found");
+            return legacy;
+        }
+
+
+        // 3) Cookie에서 access 읽기
+        if (request.getCookies() == null){
+            log.info("cookie is null");
+            return null;
+        }
+
+        for (Cookie c : request.getCookies()) {
+            log.info("cookie found: " + c.getName());
+            if ("access".equals(c.getName())) {
+                return c.getValue();
+            }
+        }
+        return null;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        return uri.startsWith("/oauth2/")
+                || uri.startsWith("/login/oauth2/")
+                || uri.startsWith("/login");
     }
 }

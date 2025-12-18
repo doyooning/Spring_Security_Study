@@ -30,40 +30,34 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final RefreshRepository refreshRepository;
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication
+    ) throws IOException {
 
-        //OAuth2User
-        CustomOAuth2User customUserDetails = (CustomOAuth2User) authentication.getPrincipal();
+        CustomOAuth2User user = (CustomOAuth2User) authentication.getPrincipal();
+        String username = user.getUsername();
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
 
-        String username = customUserDetails.getUsername();
-
-        Collection<? extends GrantedAuthority> authorities = authentication.getAuthorities();
-        Iterator<? extends GrantedAuthority> iterator = authorities.iterator();
-        GrantedAuthority auth = iterator.next();
-        String role = auth.getAuthority();
-
-        // Access, Refresh Token 생성
         String access = jwtUtil.createJwt("access", username, role, 600000L);
         String refresh = jwtUtil.createJwt("refresh", username, role, 86400000L);
-        log.info("access: " + access);
-        log.info("refresh: " + refresh);
 
-        //Refresh 토큰 저장
         addRefreshEntity(username, refresh, 86400000L);
 
-        // 응답 설정
-        response.setHeader("access", access);
-        response.addCookie(createCookie("refresh", refresh));
-        log.info("access header: " + access);
-        log.info("refresh cookie: " + refresh);
+        // 쿠키 추가
+        response.addCookie(new Cookie("access", access));
+        response.addCookie(new Cookie("refresh", refresh));
 
+        // 프론트 기준 경로
         response.sendRedirect("http://localhost:5173/my");
     }
 
-    private Cookie createCookie(String key, String value) {
+    private Cookie createCookie(String key, String value, int maxAge) {
 
         Cookie cookie = new Cookie(key, value);
-        cookie.setMaxAge(24*60*60);
+
+        cookie.setMaxAge(maxAge);
 //        cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setHttpOnly(true);

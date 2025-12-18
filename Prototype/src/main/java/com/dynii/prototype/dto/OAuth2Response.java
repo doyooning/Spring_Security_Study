@@ -8,6 +8,6 @@ public interface OAuth2Response {
     String getProviderId();
     //이메일
     String getEmail();
-    //사용자 실명 (설정한 이름)
+    //사용자 실명 (설정한 이름) -> 카카오는 닉네임...
     String getName();
 }

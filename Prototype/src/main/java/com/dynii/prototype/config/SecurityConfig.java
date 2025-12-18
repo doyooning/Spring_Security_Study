@@ -16,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -79,11 +80,14 @@ public class SecurityConfig {
 
         http
                 .exceptionHandling(exception -> exception
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                            response.setContentType("application/json;charset=UTF-8");
-                            response.getWriter().write("{\"message\":\"인증이 필요합니다\"}");
-                        })
+                        .defaultAuthenticationEntryPointFor(
+                                (request, response, authException) -> {
+                                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                                    response.setContentType("application/json;charset=UTF-8");
+                                    response.getWriter().write("{\"message\":\"인증이 필요합니다\"}");
+                                },
+                                new AntPathRequestMatcher("/api/**") // ✅ API만
+                        )
                 );
 
         //JWTFilter 추가
@@ -104,14 +108,21 @@ public class SecurityConfig {
         //경로별 인가 작업
         http
                 .authorizeHttpRequests((auth) -> auth
-                        .requestMatchers("/", "/reissue").permitAll()
-                        .requestMatchers("my").hasRole("USER")
+                        .requestMatchers(
+                                "/",
+                                "/reissue",
+                                "/oauth/**",
+                                "/login",
+                                "/login/**",
+                                "login/oauth2/**"
+                        ).permitAll()
+                        .requestMatchers("/my").hasRole("USER")
                         .anyRequest().authenticated());
 
         //세션 설정 : STATELESS
         http
                 .sessionManagement((session) -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
 
         return http.build();
     }
