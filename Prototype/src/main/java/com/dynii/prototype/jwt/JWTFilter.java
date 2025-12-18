@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -17,6 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+@Log4j2
 public class JWTFilter extends OncePerRequestFilter {
 
     private final JWTUtil jwtUtil;
@@ -36,6 +38,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         // 토큰이 없다면 다음 필터로 넘김
         if (accessToken == null) {
+            log.info("access token is null");
             filterChain.doFilter(request, response);
             return;
         }
@@ -45,6 +48,7 @@ public class JWTFilter extends OncePerRequestFilter {
             jwtUtil.isExpired(accessToken);
         } catch (ExpiredJwtException e) {
 
+            log.info("expired token");
             //response body
             PrintWriter writer = response.getWriter();
             writer.print("access token expired");
@@ -59,6 +63,7 @@ public class JWTFilter extends OncePerRequestFilter {
 
         if (!category.equals("access")) {
 
+            log.info("access token is not access");
             //response body
             PrintWriter writer = response.getWriter();
             writer.print("invalid access token");

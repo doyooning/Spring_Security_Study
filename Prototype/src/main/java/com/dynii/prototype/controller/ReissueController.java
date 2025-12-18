@@ -8,6 +8,7 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Date;
 
+@Log4j2
 @RestController
 @RequiredArgsConstructor
 public class ReissueController {
@@ -28,6 +30,7 @@ public class ReissueController {
         String refresh = null;
         Cookie[] cookies = request.getCookies();
         for (Cookie cookie : cookies) {
+            log.info("cookie: " + cookie);
             if (cookie.getName().equals("refresh")) {
                 refresh = cookie.getValue();
             }
@@ -35,6 +38,7 @@ public class ReissueController {
 
         if (refresh == null) {
 
+            log.info("refresh token is null");
             //response status code
             return new ResponseEntity<>("refresh token null", HttpStatus.BAD_REQUEST);
         }
@@ -44,6 +48,7 @@ public class ReissueController {
             jwtUtil.isExpired(refresh);
         } catch (ExpiredJwtException e) {
 
+            log.info("refresh token is expired");
             //response status code
             return new ResponseEntity<>("refresh token expired", HttpStatus.BAD_REQUEST);
         }
@@ -53,6 +58,7 @@ public class ReissueController {
 
         if (!category.equals("refresh")) {
 
+            log.info("refresh token is invalid");
             //response status code
             return new ResponseEntity<>("invalid refresh token", HttpStatus.BAD_REQUEST);
         }
@@ -63,6 +69,8 @@ public class ReissueController {
         //make new JWT
         String newAccess = jwtUtil.createJwt("access", username, role, 600000L);
         String newRefresh = jwtUtil.createJwt("refresh", username, role, 86400000L);
+        log.info("new access: " + newAccess);
+        log.info("new refresh: " + newRefresh);
 
         //Refresh 토큰 저장 DB에 기존의 Refresh 토큰 삭제 후 새 Refresh 토큰 저장
         refreshRepository.deleteByRefresh(refresh);
@@ -80,7 +88,7 @@ public class ReissueController {
         Cookie cookie = new Cookie(key, value);
         cookie.setMaxAge(24*60*60);
         //cookie.setSecure(true);
-        //cookie.setPath("/");
+//        cookie.setPath("/");
         cookie.setHttpOnly(true);
 
         return cookie;
