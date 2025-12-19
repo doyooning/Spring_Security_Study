@@ -86,7 +86,7 @@ public class SecurityConfig {
                                     response.setContentType("application/json;charset=UTF-8");
                                     response.getWriter().write("{\"message\":\"인증이 필요합니다\"}");
                                 },
-                                new AntPathRequestMatcher("/api/**") // ✅ API만
+                                new AntPathRequestMatcher("/api/**") // API만
                         )
                 );
 
@@ -114,7 +114,7 @@ public class SecurityConfig {
                                 "/oauth/**",
                                 "/login",
                                 "/login/**",
-                                "login/oauth2/**"
+                                "/login/oauth2/**"
                         ).permitAll()
                         .requestMatchers("/my").hasRole("USER")
                         .anyRequest().authenticated());
