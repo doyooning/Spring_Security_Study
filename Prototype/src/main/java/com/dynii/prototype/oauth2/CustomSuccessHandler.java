@@ -4,22 +4,17 @@ import com.dynii.prototype.dto.CustomOAuth2User;
 import com.dynii.prototype.entity.RefreshEntity;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.repository.RefreshRepository;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Date;
-import java.util.Iterator;
 
 @Log4j2
 @Component
@@ -40,16 +35,15 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String username = user.getUsername();
         String role = authentication.getAuthorities().iterator().next().getAuthority();
 
-        String access = jwtUtil.createJwt("access", username, role, 600000L);
-        String refresh = jwtUtil.createJwt("refresh", username, role, 86400000L);
+        long accessExpiryMs = 600000L;
+        long refreshExpiryMs = 86400000L;
+        String access = jwtUtil.createJwt("access", username, role, accessExpiryMs);
+        String refresh = jwtUtil.createJwt("refresh", username, role, refreshExpiryMs);
 
-        addRefreshEntity(username, refresh, 86400000L);
+        addRefreshEntity(username, refresh, refreshExpiryMs);
 
-        // 쿠키 추가
-        response.addCookie(new Cookie("access", access));
-        response.addCookie(new Cookie("refresh", refresh));
-
-        // 프론트 기준 경로
+        response.setHeader("access", access);
+        response.addCookie(createCookie("refresh", refresh, Math.toIntExact(refreshExpiryMs / 1000)));
         response.sendRedirect("http://localhost:5173/my");
     }
 
@@ -58,7 +52,7 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         Cookie cookie = new Cookie(key, value);
 
         cookie.setMaxAge(maxAge);
-//        cookie.setSecure(true);
+        // cookie.setSecure(true);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
 

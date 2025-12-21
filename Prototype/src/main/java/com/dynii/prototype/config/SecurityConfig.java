@@ -119,7 +119,7 @@ public class SecurityConfig {
                         .requestMatchers("/my").hasRole("USER")
                         .anyRequest().authenticated());
 
-        //세션 설정 : STATELESS
+        //세션 설정 : STATELESS -> IF_REQUIRED
         http
                 .sessionManagement((session) -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
