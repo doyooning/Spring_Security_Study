@@ -29,6 +29,18 @@ public class JWTUtil {
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("role", String.class);
     }
 
+    // Optional name claim for signup flow tokens.
+    public String getName(String token) {
+
+        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("name", String.class);
+    }
+
+    // Optional email claim for signup flow tokens.
+    public String getEmail(String token) {
+
+        return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("email", String.class);
+    }
+
     public String getCategory(String token) {
 
         return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload().get("category", String.class);
@@ -45,6 +57,21 @@ public class JWTUtil {
                 .claim("category", category)
                 .claim("username", username)
                 .claim("role", role)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + expiredMs))
+                .signWith(secretKey)
+                .compact();
+    }
+
+    // Create a signup token containing profile data for pending signup.
+    public String createSignupJwt(String username, String role, String name, String email, Long expiredMs) {
+
+        return Jwts.builder()
+                .claim("category", "access")
+                .claim("username", username)
+                .claim("role", role)
+                .claim("name", name)
+                .claim("email", email)
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + expiredMs))
                 .signWith(secretKey)

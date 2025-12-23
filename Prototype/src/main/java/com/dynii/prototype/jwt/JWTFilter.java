@@ -81,6 +81,10 @@ public class JWTFilter extends OncePerRequestFilter {
         UserDTO userDTO = new UserDTO();
         userDTO.setUsername(username);
         userDTO.setRole(role);
+        userDTO.setNewUser("ROLE_GUEST".equals(role));
+        // Optional profile details for signup flow.
+        userDTO.setName(jwtUtil.getName(accessToken));
+        userDTO.setEmail(jwtUtil.getEmail(accessToken));
 
         //UserDetails에 회원 정보 객체 담기
         CustomOAuth2User customOAuth2User = new CustomOAuth2User(userDTO);
@@ -132,3 +136,4 @@ public class JWTFilter extends OncePerRequestFilter {
                 || uri.startsWith("/login");
     }
 }
+

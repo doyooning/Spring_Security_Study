@@ -14,6 +14,8 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
 @Log4j2
@@ -34,6 +36,23 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         CustomOAuth2User user = (CustomOAuth2User) authentication.getPrincipal();
         String username = user.getUsername();
         String role = authentication.getAuthorities().iterator().next().getAuthority();
+
+        // Redirect pending signup users without issuing tokens.
+        if (user.isNewUser()) {
+            // Short-lived signup token to authorize the signup API calls.
+            String signupToken = jwtUtil.createSignupJwt(
+                    username,
+                    role,
+                    user.getName(),
+                    user.getEmail(),
+                    300000L
+            );
+            response.setHeader("access", signupToken);
+            // Encoded token for safe query parameter transport.
+            String encodedToken = URLEncoder.encode(signupToken, StandardCharsets.UTF_8);
+            response.sendRedirect("http://localhost:5173/signup?token=" + encodedToken);
+            return;
+        }
 
         long accessExpiryMs = 600000L;
         long refreshExpiryMs = 86400000L;

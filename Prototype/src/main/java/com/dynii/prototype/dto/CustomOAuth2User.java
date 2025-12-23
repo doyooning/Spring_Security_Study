@@ -49,4 +49,16 @@ public class CustomOAuth2User implements OAuth2User {
 
         return userDTO.getUsername();
     }
+
+    // Expose email for signup screen population.
+    public String getEmail() {
+
+        return userDTO.getEmail();
+    }
+
+    // Expose whether the user still needs signup completion.
+    public boolean isNewUser() {
+
+        return userDTO.isNewUser();
+    }
 }

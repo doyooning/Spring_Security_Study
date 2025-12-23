@@ -45,18 +45,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         if (existData == null) {
 
-            UserEntity userEntity = new UserEntity();
-            userEntity.setUsername(username);
-            userEntity.setEmail(oAuth2Response.getEmail());
-            userEntity.setName(oAuth2Response.getName());
-            userEntity.setRole("ROLE_USER");
-
-            userRepository.save(userEntity);
-
+            // Build user info for a pending signup user.
             UserDTO userDTO = new UserDTO();
             userDTO.setUsername(username);
             userDTO.setName(oAuth2Response.getName());
-            userDTO.setRole("ROLE_USER");
+            userDTO.setEmail(oAuth2Response.getEmail());
+            userDTO.setRole("ROLE_GUEST");
+            userDTO.setNewUser(true);
 
             return new CustomOAuth2User(userDTO);
         }
@@ -70,7 +65,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             UserDTO userDTO = new UserDTO();
             userDTO.setUsername(existData.getUsername());
             userDTO.setName(oAuth2Response.getName());
+            userDTO.setEmail(oAuth2Response.getEmail());
             userDTO.setRole(existData.getRole());
+            userDTO.setNewUser(false);
 
             return new CustomOAuth2User(userDTO);
         }
