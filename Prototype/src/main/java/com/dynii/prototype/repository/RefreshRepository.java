@@ -1,12 +1,34 @@
 package com.dynii.prototype.repository;
 
-import com.dynii.prototype.entity.RefreshEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Repository;
 
-public interface RefreshRepository extends JpaRepository<RefreshEntity, Long> {
-    Boolean existsByRefresh(String refresh);
+import java.time.Duration;
 
-    @Transactional
-    void deleteByRefresh(String refresh);
+@Repository
+public class RefreshRepository {
+    private static final String PREFIX = "refresh:";
+
+    private final RedisTemplate<String, String> redisTemplate;
+
+    public RefreshRepository(RedisTemplate<String, String> redisTemplate) {
+        this.redisTemplate = redisTemplate;
+    }
+
+    public void save(String username, String refresh, long expiredMs) {
+        redisTemplate.opsForValue().set(key(refresh), username, Duration.ofMillis(expiredMs));
+    }
+
+    public boolean existsByRefresh(String refresh) {
+        Boolean exists = redisTemplate.hasKey(key(refresh));
+        return Boolean.TRUE.equals(exists);
+    }
+
+    public void deleteByRefresh(String refresh) {
+        redisTemplate.delete(key(refresh));
+    }
+
+    private String key(String refresh) {
+        return PREFIX + refresh;
+    }
 }

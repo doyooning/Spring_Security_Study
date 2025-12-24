@@ -1,6 +1,5 @@
 package com.dynii.prototype.controller;
 
-import com.dynii.prototype.entity.RefreshEntity;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.repository.RefreshRepository;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -14,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Date;
 
 @Log4j2
 @RestController
@@ -74,7 +72,7 @@ public class ReissueController {
 
         //Refresh 토큰 저장 DB에 기존의 Refresh 토큰 삭제 후 새 Refresh 토큰 저장
         refreshRepository.deleteByRefresh(refresh);
-        addRefreshEntity(username, newRefresh, 86400000L);
+        refreshRepository.save(username, newRefresh, 86400000L);
 
         //response
         response.setHeader("access", newAccess);
@@ -94,15 +92,4 @@ public class ReissueController {
         return cookie;
     }
 
-    private void addRefreshEntity(String username, String refresh, Long expiredMs) {
-
-        Date date = new Date(System.currentTimeMillis() + expiredMs);
-
-        RefreshEntity refreshEntity = new RefreshEntity();
-        refreshEntity.setUsername(username);
-        refreshEntity.setRefresh(refresh);
-        refreshEntity.setExpiration(date.toString());
-
-        refreshRepository.save(refreshEntity);
-    }
 }

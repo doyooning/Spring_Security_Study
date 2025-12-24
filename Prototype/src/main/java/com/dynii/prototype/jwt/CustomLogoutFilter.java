@@ -9,6 +9,7 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.web.filter.GenericFilterBean;
 
 import java.io.IOException;
@@ -49,11 +50,11 @@ public class CustomLogoutFilter extends GenericFilterBean {
         //get refresh token
         String refresh = null;
         Cookie[] cookies = request.getCookies();
-        for (Cookie cookie : cookies) {
-
-            if (cookie.getName().equals("refresh")) {
-
-                refresh = cookie.getValue();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (cookie.getName().equals("refresh")) {
+                    refresh = cookie.getValue();
+                }
             }
         }
 
@@ -96,12 +97,23 @@ public class CustomLogoutFilter extends GenericFilterBean {
         //Refresh 토큰 DB에서 제거
         refreshRepository.deleteByRefresh(refresh);
 
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+
         //Refresh 토큰 Cookie 값 0
         Cookie cookie = new Cookie("refresh", null);
         cookie.setMaxAge(0);
         cookie.setPath("/");
 
+        Cookie accessCookie = new Cookie("access", null);
+        accessCookie.setMaxAge(0);
+        accessCookie.setPath("/");
+
+        response.setHeader("access", "");
         response.addCookie(cookie);
+        response.addCookie(accessCookie);
         response.setStatus(HttpServletResponse.SC_OK);
     }
 }

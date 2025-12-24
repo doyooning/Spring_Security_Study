@@ -1,7 +1,9 @@
 package com.dynii.prototype.service;
 
 import com.dynii.prototype.dto.*;
+import com.dynii.prototype.entity.SellerEntity;
 import com.dynii.prototype.entity.UserEntity;
+import com.dynii.prototype.repository.SellerRepository;
 import com.dynii.prototype.repository.UserRepository;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -13,10 +15,12 @@ import org.springframework.stereotype.Service;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final SellerRepository sellerRepository;
 
-    public CustomOAuth2UserService(UserRepository userRepository) {
+    public CustomOAuth2UserService(UserRepository userRepository, SellerRepository sellerRepository) {
 
         this.userRepository = userRepository;
+        this.sellerRepository = sellerRepository;
     }
 
     @Override
@@ -42,8 +46,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         String username = oAuth2Response.getProvider()+" "+oAuth2Response.getProviderId();
         UserEntity existData = userRepository.findByUsername(username);
+        SellerEntity existSeller = sellerRepository.findByLoginId(username);
 
-        if (existData == null) {
+        if (existData == null && existSeller == null) {
 
             // Build user info for a pending signup user.
             UserDTO userDTO = new UserDTO();
@@ -55,7 +60,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             return new CustomOAuth2User(userDTO);
         }
-        else {
+        else if (existData != null) {
 
             existData.setEmail(oAuth2Response.getEmail());
             existData.setName(oAuth2Response.getName());
@@ -67,6 +72,22 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             userDTO.setName(oAuth2Response.getName());
             userDTO.setEmail(oAuth2Response.getEmail());
             userDTO.setRole(existData.getRole());
+            userDTO.setNewUser(false);
+
+            return new CustomOAuth2User(userDTO);
+        }
+        else {
+
+            existSeller.setName(oAuth2Response.getName());
+            existSeller.setUpdatedAt(java.time.LocalDateTime.now());
+
+            sellerRepository.save(existSeller);
+
+            UserDTO userDTO = new UserDTO();
+            userDTO.setUsername(existSeller.getLoginId());
+            userDTO.setName(existSeller.getName());
+            userDTO.setEmail(oAuth2Response.getEmail());
+            userDTO.setRole(existSeller.getRole());
             userDTO.setNewUser(false);
 
             return new CustomOAuth2User(userDTO);

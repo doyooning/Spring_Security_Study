@@ -1,7 +1,6 @@
 package com.dynii.prototype.oauth2;
 
 import com.dynii.prototype.dto.CustomOAuth2User;
-import com.dynii.prototype.entity.RefreshEntity;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.repository.RefreshRepository;
 import jakarta.servlet.http.Cookie;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Date;
 
 @Log4j2
 @Component
@@ -59,7 +57,7 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String access = jwtUtil.createJwt("access", username, role, accessExpiryMs);
         String refresh = jwtUtil.createJwt("refresh", username, role, refreshExpiryMs);
 
-        addRefreshEntity(username, refresh, refreshExpiryMs);
+        refreshRepository.save(username, refresh, refreshExpiryMs);
 
         response.setHeader("access", access);
         response.addCookie(createCookie("refresh", refresh, Math.toIntExact(refreshExpiryMs / 1000)));
@@ -78,15 +76,4 @@ public class CustomSuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         return cookie;
     }
 
-    private void addRefreshEntity(String username, String refresh, Long expiredMs) {
-
-        Date date = new Date(System.currentTimeMillis() + expiredMs);
-
-        RefreshEntity refreshEntity = new RefreshEntity();
-        refreshEntity.setUsername(username);
-        refreshEntity.setRefresh(refresh);
-        refreshEntity.setExpiration(date.toString());
-
-        refreshRepository.save(refreshEntity);
-    }
 }

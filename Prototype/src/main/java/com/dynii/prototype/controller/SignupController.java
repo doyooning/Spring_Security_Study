@@ -1,10 +1,17 @@
 package com.dynii.prototype.controller;
 
 import com.dynii.prototype.dto.*;
-import com.dynii.prototype.entity.RefreshEntity;
+import com.dynii.prototype.entity.CompanyRegisteredEntity;
+import com.dynii.prototype.entity.SellerGradeEntity;
+import com.dynii.prototype.entity.SellerEntity;
+import com.dynii.prototype.entity.SellerRegisterEntity;
 import com.dynii.prototype.entity.UserEntity;
 import com.dynii.prototype.jwt.JWTUtil;
+import com.dynii.prototype.repository.CompanyRegisteredRepository;
 import com.dynii.prototype.repository.RefreshRepository;
+import com.dynii.prototype.repository.SellerGradeRepository;
+import com.dynii.prototype.repository.SellerRepository;
+import com.dynii.prototype.repository.SellerRegisterRepository;
 import com.dynii.prototype.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
@@ -13,9 +20,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
+import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -33,6 +42,27 @@ public class SignupController {
     // Session key for verification completion flag.
     private static final String SESSION_PHONE_VERIFIED = "pendingPhoneVerified";
 
+    // Member type constant for general users.
+    private static final String MEMBER_TYPE_GENERAL = "GENERAL";
+
+    // Member type constant for sellers.
+    private static final String MEMBER_TYPE_SELLER = "SELLER";
+
+    // Company status for active registrations.
+    private static final String COMPANY_STATUS_ACTIVE = "ACTIVE";
+
+    // Default grade for newly registered sellers.
+    private static final String DEFAULT_SELLER_GRADE = "C";
+
+    // Grade status used while seller approval is pending.
+    private static final String SELLER_GRADE_STATUS_REVIEW = "REVIEW";
+
+    // Seller status for pending approval.
+    private static final String SELLER_STATUS_PENDING = "PENDING";
+
+    // Role assigned to pending sellers.
+    private static final String ROLE_SELLER_PENDING = "ROLE_SELLER_PENDING";
+
     // Repository for persisting user records.
     private final UserRepository userRepository;
 
@@ -41,6 +71,18 @@ public class SignupController {
 
     // Repository for refresh token persistence.
     private final RefreshRepository refreshRepository;
+
+    // Repository for seller accounts.
+    private final SellerRepository sellerRepository;
+
+    // Repository for registered companies.
+    private final CompanyRegisteredRepository companyRegisteredRepository;
+
+    // Repository for seller registration submissions.
+    private final SellerRegisterRepository sellerRegisterRepository;
+
+    // Repository for seller grade assignments.
+    private final SellerGradeRepository sellerGradeRepository;
 
     // Provide pending signup info to the frontend after social login.
     @GetMapping("/pending")
@@ -141,6 +183,7 @@ public class SignupController {
 
     // Complete signup for general members after phone verification.
     @PostMapping("/complete")
+    @Transactional
     public ResponseEntity<?> completeSignup(
             @AuthenticationPrincipal CustomOAuth2User user,
             @RequestBody SocialSignupRequest request,
@@ -163,14 +206,15 @@ public class SignupController {
             return new ResponseEntity<>("already signed up", HttpStatus.CONFLICT);
         }
 
+        // Ensure seller does not already exist in DB.
+        SellerEntity existSeller = sellerRepository.findByLoginId(user.getUsername());
+        if (existSeller != null) {
+            return new ResponseEntity<>("already signed up", HttpStatus.CONFLICT);
+        }
+
         // Validate terms agreement.
         if (!request.isAgreeToTerms()) {
             return new ResponseEntity<>("terms agreement required", HttpStatus.BAD_REQUEST);
-        }
-
-        // Validate member type (general only for now).
-        if (!"GENERAL".equalsIgnoreCase(request.getMemberType())) {
-            return new ResponseEntity<>("only GENERAL signup is supported", HttpStatus.BAD_REQUEST);
         }
 
         // Ensure phone verification completed.
@@ -185,13 +229,38 @@ public class SignupController {
             return new ResponseEntity<>("phone number mismatch", HttpStatus.BAD_REQUEST);
         }
 
+        // Member type selected for signup branching.
+        String memberType = trimToNull(request.getMemberType());
+        if (memberType == null) {
+            return new ResponseEntity<>("member type required", HttpStatus.BAD_REQUEST);
+        }
+
+        if (MEMBER_TYPE_GENERAL.equalsIgnoreCase(memberType)) {
+            return completeGeneralSignup(user, request, response, session, storedPhone);
+        }
+
+        if (MEMBER_TYPE_SELLER.equalsIgnoreCase(memberType)) {
+            return completeSellerSignup(user, request, response, session, storedPhone);
+        }
+
+        return new ResponseEntity<>("unsupported member type", HttpStatus.BAD_REQUEST);
+    }
+
+    // Handle general member signup completion.
+    private ResponseEntity<?> completeGeneralSignup(
+            CustomOAuth2User user,
+            SocialSignupRequest request,
+            HttpServletResponse response,
+            HttpSession session,
+            String storedPhone
+    ) {
         // Build and persist the new user entity.
         UserEntity userEntity = new UserEntity();
         userEntity.setUsername(user.getUsername());
         userEntity.setName(user.getName());
         userEntity.setEmail(user.getEmail());
         userEntity.setRole("ROLE_USER");
-        userEntity.setMemberType("GENERAL");
+        userEntity.setMemberType(MEMBER_TYPE_GENERAL);
         userEntity.setPhoneNumber(storedPhone);
         userEntity.setMbti(trimToNull(request.getMbti()));
         userEntity.setJob(trimToNull(request.getJob()));
@@ -202,12 +271,111 @@ public class SignupController {
         // Issue tokens after successful signup.
         issueTokens(userEntity.getUsername(), userEntity.getRole(), response);
 
-        // Clear session attributes after completion.
-        session.removeAttribute(SESSION_PHONE_NUMBER);
-        session.removeAttribute(SESSION_PHONE_CODE);
-        session.removeAttribute(SESSION_PHONE_VERIFIED);
+        // Clear phone verification state after completion.
+        clearPhoneSession(session);
 
         return new ResponseEntity<>("signup completed", HttpStatus.OK);
+    }
+
+    // Handle seller signup completion with review data.
+    private ResponseEntity<?> completeSellerSignup(
+            CustomOAuth2User user,
+            SocialSignupRequest request,
+            HttpServletResponse response,
+            HttpSession session,
+            String storedPhone
+    ) {
+        // Business number required for seller registration.
+        String businessNumber = trimToNull(request.getBusinessNumber());
+        if (businessNumber == null) {
+            return new ResponseEntity<>("business number required", HttpStatus.BAD_REQUEST);
+        }
+
+        // Company name required for seller registration.
+        String companyName = trimToNull(request.getCompanyName());
+        if (companyName == null) {
+            return new ResponseEntity<>("company name required", HttpStatus.BAD_REQUEST);
+        }
+
+        // Plan file payload required for seller registration.
+        String planFileBase64 = trimToNull(request.getPlanFileBase64());
+        if (planFileBase64 == null) {
+            return new ResponseEntity<>("plan file required", HttpStatus.BAD_REQUEST);
+        }
+
+        // Reject when the business number is already registered.
+        CompanyRegisteredEntity existingCompany = companyRegisteredRepository.findByBusinessNumber(businessNumber);
+        if (existingCompany != null
+                && COMPANY_STATUS_ACTIVE.equalsIgnoreCase(existingCompany.getCompanyStatus())) {
+            return new ResponseEntity<>("business number already registered", HttpStatus.CONFLICT);
+        }
+
+        // Optional seller description for review.
+        String description = trimToNull(request.getDescription());
+
+        // Decode plan file from base64 payload.
+        byte[] planFile;
+        try {
+            planFile = decodePlanFile(planFileBase64);
+        } catch (IllegalArgumentException ex) {
+            return new ResponseEntity<>("invalid plan file payload", HttpStatus.BAD_REQUEST);
+        }
+
+        // Timestamp used for seller-related records.
+        LocalDateTime now = LocalDateTime.now();
+
+        // Build and persist the new seller user entity.
+        SellerEntity sellerEntity = new SellerEntity();
+        sellerEntity.setLoginId(user.getUsername());
+        sellerEntity.setName(user.getName());
+        sellerEntity.setPhone(storedPhone);
+        sellerEntity.setRole(ROLE_SELLER_PENDING);
+        sellerEntity.setSellerStatus(SELLER_STATUS_PENDING);
+        sellerEntity.setCreatedAt(now);
+        sellerEntity.setUpdatedAt(now);
+
+        sellerRepository.save(sellerEntity);
+
+        // Store the registered company for duplicate checks.
+        CompanyRegisteredEntity companyRegistered = new CompanyRegisteredEntity();
+        companyRegistered.setCompanyName(companyName);
+        companyRegistered.setBusinessNumber(businessNumber);
+        companyRegistered.setSellerId(sellerEntity.getId());
+        companyRegistered.setCreatedAt(now);
+        companyRegistered.setCompanyStatus(COMPANY_STATUS_ACTIVE);
+
+        companyRegisteredRepository.save(companyRegistered);
+
+        // Store seller review submission details.
+        SellerRegisterEntity sellerRegister = new SellerRegisterEntity();
+        sellerRegister.setPlanFile(planFile);
+        sellerRegister.setSellerId(sellerEntity.getId());
+        sellerRegister.setDescription(description);
+        sellerRegister.setCompanyName(companyName);
+
+        sellerRegisterRepository.save(sellerRegister);
+
+        // Assign initial seller grade in review status.
+        SellerGradeEntity sellerGrade = new SellerGradeEntity();
+        sellerGrade.setGrade(DEFAULT_SELLER_GRADE);
+        sellerGrade.setGradeStatus(SELLER_GRADE_STATUS_REVIEW);
+        sellerGrade.setCreatedAt(now);
+        sellerGrade.setUpdatedAt(now);
+        sellerGrade.setExpiredAt(now.plusYears(1));
+        sellerGrade.setCompanyId(companyRegistered.getId());
+
+        sellerGradeRepository.save(sellerGrade);
+
+        // Issue tokens after successful signup request.
+        issueTokens(sellerEntity.getLoginId(), sellerEntity.getRole(), response);
+
+        // Clear phone verification state after completion.
+        clearPhoneSession(session);
+
+        return new ResponseEntity<>(
+                "판매자 회원 가입 신청이 완료되었습니다. 관리자 승인 후에 서비스 이용이 가능합니다.",
+                HttpStatus.OK
+        );
     }
 
     // Issue access/refresh tokens and persist refresh token.
@@ -222,7 +390,7 @@ public class SignupController {
         String access = jwtUtil.createJwt("access", username, role, accessExpiryMs); // Access token for header.
         String refresh = jwtUtil.createJwt("refresh", username, role, refreshExpiryMs); // Refresh token for cookie.
 
-        addRefreshEntity(username, refresh, refreshExpiryMs);
+        refreshRepository.save(username, refresh, refreshExpiryMs);
 
         response.setHeader("access", access);
         response.addCookie(createCookie("refresh", refresh, Math.toIntExact(refreshExpiryMs / 1000)));
@@ -242,17 +410,20 @@ public class SignupController {
     }
 
     // Persist refresh token record for reissue workflow.
-    private void addRefreshEntity(String username, String refresh, Long expiredMs) {
-        // Expiration date derived from refresh expiry.
-        Date date = new Date(System.currentTimeMillis() + expiredMs);
+    // Clear phone verification attributes after signup completion.
+    private void clearPhoneSession(HttpSession session) {
+        // Cleanup pending phone state stored in session.
+        session.removeAttribute(SESSION_PHONE_NUMBER);
+        session.removeAttribute(SESSION_PHONE_CODE);
+        session.removeAttribute(SESSION_PHONE_VERIFIED);
+    }
 
-        // Refresh token entity to store in DB.
-        RefreshEntity refreshEntity = new RefreshEntity();
-        refreshEntity.setUsername(username);
-        refreshEntity.setRefresh(refresh);
-        refreshEntity.setExpiration(date.toString());
-
-        refreshRepository.save(refreshEntity);
+    // Decode base64 plan file payload, tolerating data URL prefixes.
+    private byte[] decodePlanFile(String encodedPlanFile) {
+        // Remove data URL prefix if present.
+        int commaIndex = encodedPlanFile.indexOf(',');
+        String payload = commaIndex >= 0 ? encodedPlanFile.substring(commaIndex + 1) : encodedPlanFile;
+        return Base64.getDecoder().decode(payload);
     }
 
     // Normalize optional text input to null when blank.

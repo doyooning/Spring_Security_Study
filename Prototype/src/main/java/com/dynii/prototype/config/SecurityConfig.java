@@ -30,7 +30,6 @@ public class SecurityConfig {
     private final CustomSuccessHandler customSuccessHandler;
     private final JWTUtil jwtUtil;
     private final RefreshRepository refreshRepository;
-
     public SecurityConfig(CustomOAuth2UserService customOAuth2UserService,
                           CustomSuccessHandler customSuccessHandler,
                           JWTUtil jwtUtil,
@@ -43,7 +42,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http, RefreshRepository refreshRepository) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
 
         http
                 .cors(corsCustomizer -> corsCustomizer.configurationSource(new CorsConfigurationSource() {
@@ -92,7 +91,7 @@ public class SecurityConfig {
 
         //JWTFilter 추가
         http
-                .addFilterBefore(new JWTFilter(jwtUtil, refreshRepository), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new JWTFilter(jwtUtil), UsernamePasswordAuthenticationFilter.class);
 
         http
                 .addFilterBefore(new CustomLogoutFilter(jwtUtil, refreshRepository), LogoutFilter.class);
@@ -116,7 +115,7 @@ public class SecurityConfig {
                                 "/login/**",
                                 "/login/oauth2/**"
                         ).permitAll()
-                        .requestMatchers("/my").hasRole("USER")
+                        .requestMatchers("/my").hasAnyRole("USER", "SELLER")
                         .anyRequest().authenticated());
 
         //세션 설정 : STATELESS -> IF_REQUIRED

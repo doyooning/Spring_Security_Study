@@ -10,6 +10,16 @@ const verificationCode = ref("");
 const memberType = ref("GENERAL");
 const mbti = ref("");
 const job = ref("");
+// Seller business registration number.
+const businessNumber = ref("");
+// Seller company name.
+const companyName = ref("");
+// Optional seller description.
+const description = ref("");
+// Base64-encoded seller plan file payload.
+const planFileBase64 = ref("");
+// Display name for selected plan file.
+const planFileName = ref("");
 const agreeToTerms = ref(false);
 const message = ref("");
 const isVerified = ref(false);
@@ -105,6 +115,10 @@ const submitSignup = async () => {
       phoneNumber: phoneNumber.value,
       mbti: mbti.value,
       job: job.value,
+      businessNumber: businessNumber.value,
+      companyName: companyName.value,
+      description: description.value,
+      planFileBase64: planFileBase64.value,
       agreeToTerms: agreeToTerms.value,
     }),
   });
@@ -115,8 +129,33 @@ const submitSignup = async () => {
     return;
   }
 
-  message.value = "회원가입 완료";
+  const successText = await response.text();
+  if (memberType.value === "SELLER") {
+    message.value =
+      successText ||
+      "판매자 회원 가입 신청이 완료되었습니다. 관리자 승인 후에 서비스 이용이 가능합니다.";
+    return;
+  }
+
+  message.value = successText || "회원가입 완료";
   window.location.href = "/my";
+};
+
+// Capture seller plan file and store as base64 for API payload.
+const handlePlanFileChange = (event) => {
+  const file = event.target.files?.[0];
+  if (!file) {
+    planFileBase64.value = "";
+    planFileName.value = "";
+    return;
+  }
+
+  planFileName.value = file.name;
+  const reader = new FileReader();
+  reader.onload = () => {
+    planFileBase64.value = reader.result || "";
+  };
+  reader.readAsDataURL(file);
 };
 
 // Extract signup token from URL query parameter.
@@ -155,13 +194,23 @@ onMounted(() => {
     <h2>회원 종류</h2>
     <select v-model="memberType">
       <option value="GENERAL">일반 회원</option>
+      <option value="SELLER">판매자</option>
     </select>
   </div>
 
-  <div>
+  <div v-if="memberType === 'GENERAL'">
     <h2>추가 정보</h2>
     <input v-model="mbti" placeholder="MBTI (선택)" />
     <input v-model="job" placeholder="직업 (선택)" />
+  </div>
+
+  <div v-else-if="memberType === 'SELLER'">
+    <h2>판매자 정보</h2>
+    <input v-model="businessNumber" placeholder="사업자등록번호" />
+    <input v-model="companyName" placeholder="사업자명" />
+    <textarea v-model="description" placeholder="사업 설명 (선택)"></textarea>
+    <input type="file" @change="handlePlanFileChange" />
+    <p v-if="planFileName">선택된 파일: {{ planFileName }}</p>
   </div>
 
   <div>
