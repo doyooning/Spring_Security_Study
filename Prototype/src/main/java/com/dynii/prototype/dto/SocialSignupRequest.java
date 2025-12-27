@@ -31,6 +31,9 @@ public class SocialSignupRequest {
     // Base64-encoded plan file payload for seller review.
     private String planFileBase64;
 
+    // Optional invitation token for invited seller signup.
+    private String inviteToken;
+
     // Terms agreement flag.
     private boolean agreeToTerms;
 }

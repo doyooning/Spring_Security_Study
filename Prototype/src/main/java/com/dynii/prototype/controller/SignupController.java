@@ -2,12 +2,14 @@ package com.dynii.prototype.controller;
 
 import com.dynii.prototype.dto.*;
 import com.dynii.prototype.entity.CompanyRegisteredEntity;
+import com.dynii.prototype.entity.InvitationEntity;
 import com.dynii.prototype.entity.SellerGradeEntity;
 import com.dynii.prototype.entity.SellerEntity;
 import com.dynii.prototype.entity.SellerRegisterEntity;
 import com.dynii.prototype.entity.UserEntity;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.repository.CompanyRegisteredRepository;
+import com.dynii.prototype.repository.InvitationRepository;
 import com.dynii.prototype.repository.RefreshRepository;
 import com.dynii.prototype.repository.SellerGradeRepository;
 import com.dynii.prototype.repository.SellerRepository;
@@ -60,8 +62,23 @@ public class SignupController {
     // Seller status for pending approval.
     private static final String SELLER_STATUS_PENDING = "PENDING";
 
-    // Role assigned to pending sellers.
-    private static final String ROLE_SELLER_PENDING = "ROLE_SELLER_PENDING";
+    // Seller status for active accounts.
+    private static final String SELLER_STATUS_ACTIVE = "ACTIVE";
+
+    // Role assigned to the initial owner seller.
+    private static final String ROLE_SELLER_OWNER = "ROLE_SELLER_OWNER";
+
+    // Role assigned to invited manager sellers.
+    private static final String ROLE_SELLER_MANAGER = "ROLE_SELLER_MANAGER";
+
+    // Invitation status for pending invites.
+    private static final String INVITATION_STATUS_PENDING = "PENDING";
+
+    // Invitation status for accepted invites.
+    private static final String INVITATION_STATUS_ACCEPTED = "ACCEPTED";
+
+    // Invitation status for expired invites.
+    private static final String INVITATION_STATUS_EXPIRED = "EXPIRED";
 
     // Repository for persisting user records.
     private final UserRepository userRepository;
@@ -83,6 +100,9 @@ public class SignupController {
 
     // Repository for seller grade assignments.
     private final SellerGradeRepository sellerGradeRepository;
+
+    // Repository for seller invitations.
+    private final InvitationRepository invitationRepository;
 
     // Provide pending signup info to the frontend after social login.
     @GetMapping("/pending")
@@ -285,6 +305,12 @@ public class SignupController {
             HttpSession session,
             String storedPhone
     ) {
+        // Invitation token for invited seller signup.
+        String inviteToken = trimToNull(request.getInviteToken());
+        if (inviteToken != null) {
+            return completeInvitedSellerSignup(user, response, session, storedPhone, inviteToken);
+        }
+
         // Business number required for seller registration.
         String businessNumber = trimToNull(request.getBusinessNumber());
         if (businessNumber == null) {
@@ -329,7 +355,7 @@ public class SignupController {
         sellerEntity.setLoginId(user.getUsername());
         sellerEntity.setName(user.getName());
         sellerEntity.setPhone(storedPhone);
-        sellerEntity.setRole(ROLE_SELLER_PENDING);
+        sellerEntity.setRole(ROLE_SELLER_OWNER);
         sellerEntity.setSellerStatus(SELLER_STATUS_PENDING);
         sellerEntity.setCreatedAt(now);
         sellerEntity.setUpdatedAt(now);
@@ -376,6 +402,73 @@ public class SignupController {
                 "판매자 회원 가입 신청이 완료되었습니다. 관리자 승인 후에 서비스 이용이 가능합니다.",
                 HttpStatus.OK
         );
+    }
+
+    // Handle invited seller signup completion with manager role.
+    private ResponseEntity<?> completeInvitedSellerSignup(
+            CustomOAuth2User user,
+            HttpServletResponse response,
+            HttpSession session,
+            String storedPhone,
+            String inviteToken
+    ) {
+        // Invitation lookup by token.
+        InvitationEntity invitation = invitationRepository.findByToken(inviteToken);
+        if (invitation == null) {
+            return new ResponseEntity<>("invitation not found", HttpStatus.NOT_FOUND);
+        }
+
+        // Validate invitation status.
+        if (!INVITATION_STATUS_PENDING.equalsIgnoreCase(invitation.getStatus())) {
+            return new ResponseEntity<>("invitation already used", HttpStatus.CONFLICT);
+        }
+
+        // Validate invitation expiration.
+        LocalDateTime now = LocalDateTime.now();
+        if (invitation.getExpiredAt() != null && invitation.getExpiredAt().isBefore(now)) {
+            invitation.setStatus(INVITATION_STATUS_EXPIRED);
+            invitation.setUpdatedAt(now);
+            invitationRepository.save(invitation);
+            return new ResponseEntity<>("invitation expired", HttpStatus.GONE);
+        }
+
+        // Ensure the invitation email matches the signup email.
+        String inviteEmail = trimToNull(invitation.getEmail());
+        String signupEmail = trimToNull(user.getEmail());
+        if (inviteEmail == null || signupEmail == null || !inviteEmail.equalsIgnoreCase(signupEmail)) {
+            return new ResponseEntity<>("invitation email mismatch", HttpStatus.BAD_REQUEST);
+        }
+
+        // Ensure the invitation owner seller exists.
+        SellerEntity ownerSeller = sellerRepository.findById(invitation.getSellerId()).orElse(null);
+        if (ownerSeller == null) {
+            return new ResponseEntity<>("invitation owner not found", HttpStatus.NOT_FOUND);
+        }
+
+        // Build and persist the new manager seller entity.
+        SellerEntity sellerEntity = new SellerEntity();
+        sellerEntity.setLoginId(user.getUsername());
+        sellerEntity.setName(user.getName());
+        sellerEntity.setPhone(storedPhone);
+        sellerEntity.setRole(ROLE_SELLER_MANAGER);
+        sellerEntity.setSellerStatus(SELLER_STATUS_ACTIVE);
+        sellerEntity.setCreatedAt(now);
+        sellerEntity.setUpdatedAt(now);
+
+        sellerRepository.save(sellerEntity);
+
+        // Mark invitation as accepted after successful signup.
+        invitation.setStatus(INVITATION_STATUS_ACCEPTED);
+        invitation.setUpdatedAt(now);
+        invitationRepository.save(invitation);
+
+        // Issue tokens after successful invited signup.
+        issueTokens(sellerEntity.getLoginId(), sellerEntity.getRole(), response);
+
+        // Clear phone verification state after completion.
+        clearPhoneSession(session);
+
+        return new ResponseEntity<>("invited seller signup completed", HttpStatus.OK);
     }
 
     // Issue access/refresh tokens and persist refresh token.

@@ -110,12 +110,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/",
                                 "/reissue",
+                                "/api/invitations/validate",
                                 "/oauth/**",
                                 "/login",
                                 "/login/**",
                                 "/login/oauth2/**"
                         ).permitAll()
-                        .requestMatchers("/my").hasAnyRole("USER", "SELLER")
+                        .requestMatchers("/my").hasAnyRole("USER", "SELLER", "SELLER_OWNER", "SELLER_MANAGER")
                         .anyRequest().authenticated());
 
         //세션 설정 : STATELESS -> IF_REQUIRED
