@@ -7,6 +7,13 @@ import com.dynii.prototype.entity.SellerGradeEntity;
 import com.dynii.prototype.entity.SellerEntity;
 import com.dynii.prototype.entity.SellerRegisterEntity;
 import com.dynii.prototype.entity.UserEntity;
+import com.dynii.prototype.enums.CompanyStatus;
+import com.dynii.prototype.enums.InvitationStatus;
+import com.dynii.prototype.enums.MemberType;
+import com.dynii.prototype.enums.SellerGrade;
+import com.dynii.prototype.enums.SellerGradeStatus;
+import com.dynii.prototype.enums.SellerRole;
+import com.dynii.prototype.enums.SellerStatus;
 import com.dynii.prototype.jwt.JWTUtil;
 import com.dynii.prototype.repository.CompanyRegisteredRepository;
 import com.dynii.prototype.repository.InvitationRepository;
@@ -43,42 +50,6 @@ public class SignupController {
 
     // Session key for verification completion flag.
     private static final String SESSION_PHONE_VERIFIED = "pendingPhoneVerified";
-
-    // Member type constant for general users.
-    private static final String MEMBER_TYPE_GENERAL = "GENERAL";
-
-    // Member type constant for sellers.
-    private static final String MEMBER_TYPE_SELLER = "SELLER";
-
-    // Company status for active registrations.
-    private static final String COMPANY_STATUS_ACTIVE = "ACTIVE";
-
-    // Default grade for newly registered sellers.
-    private static final String DEFAULT_SELLER_GRADE = "C";
-
-    // Grade status used while seller approval is pending.
-    private static final String SELLER_GRADE_STATUS_REVIEW = "REVIEW";
-
-    // Seller status for pending approval.
-    private static final String SELLER_STATUS_PENDING = "PENDING";
-
-    // Seller status for active accounts.
-    private static final String SELLER_STATUS_ACTIVE = "ACTIVE";
-
-    // Role assigned to the initial owner seller.
-    private static final String ROLE_SELLER_OWNER = "ROLE_SELLER_OWNER";
-
-    // Role assigned to invited manager sellers.
-    private static final String ROLE_SELLER_MANAGER = "ROLE_SELLER_MANAGER";
-
-    // Invitation status for pending invites.
-    private static final String INVITATION_STATUS_PENDING = "PENDING";
-
-    // Invitation status for accepted invites.
-    private static final String INVITATION_STATUS_ACCEPTED = "ACCEPTED";
-
-    // Invitation status for expired invites.
-    private static final String INVITATION_STATUS_EXPIRED = "EXPIRED";
 
     // Repository for persisting user records.
     private final UserRepository userRepository;
@@ -120,10 +91,11 @@ public class SignupController {
         }
 
         // Response payload to prefill signup form.
-        PendingSignupResponse response = new PendingSignupResponse();
-        response.setUsername(user.getUsername());
-        response.setName(user.getName());
-        response.setEmail(user.getEmail());
+        PendingSignupResponse response = PendingSignupResponse.builder()
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .build();
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -160,9 +132,10 @@ public class SignupController {
         session.setAttribute(SESSION_PHONE_VERIFIED, false);
 
         // Response payload containing dev-only code.
-        PhoneSendResponse response = new PhoneSendResponse();
-        response.setMessage("verification code generated");
-        response.setCode(code);
+        PhoneSendResponse response = PhoneSendResponse.builder()
+                .message("verification code generated")
+                .code(code)
+                .build();
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -250,16 +223,23 @@ public class SignupController {
         }
 
         // Member type selected for signup branching.
-        String memberType = trimToNull(request.getMemberType());
-        if (memberType == null) {
+        // Raw member type input from request payload.
+        String memberTypeRaw = trimToNull(request.getMemberType());
+        if (memberTypeRaw == null) {
             return new ResponseEntity<>("member type required", HttpStatus.BAD_REQUEST);
         }
 
-        if (MEMBER_TYPE_GENERAL.equalsIgnoreCase(memberType)) {
+        // Parsed member type for signup branching.
+        MemberType memberType = parseMemberType(memberTypeRaw);
+        if (memberType == null) {
+            return new ResponseEntity<>("unsupported member type", HttpStatus.BAD_REQUEST);
+        }
+
+        if (MemberType.GENERAL.equals(memberType)) {
             return completeGeneralSignup(user, request, response, session, storedPhone);
         }
 
-        if (MEMBER_TYPE_SELLER.equalsIgnoreCase(memberType)) {
+        if (MemberType.SELLER.equals(memberType)) {
             return completeSellerSignup(user, request, response, session, storedPhone);
         }
 
@@ -275,16 +255,17 @@ public class SignupController {
             String storedPhone
     ) {
         // Build and persist the new user entity.
-        UserEntity userEntity = new UserEntity();
-        userEntity.setUsername(user.getUsername());
-        userEntity.setName(user.getName());
-        userEntity.setEmail(user.getEmail());
-        userEntity.setRole("ROLE_USER");
-        userEntity.setMemberType(MEMBER_TYPE_GENERAL);
-        userEntity.setPhoneNumber(storedPhone);
-        userEntity.setMbti(trimToNull(request.getMbti()));
-        userEntity.setJob(trimToNull(request.getJob()));
-        userEntity.setSignupCompleted(true);
+        UserEntity userEntity = UserEntity.builder()
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .role("ROLE_USER")
+                .memberType(MemberType.GENERAL.name())
+                .phoneNumber(storedPhone)
+                .mbti(trimToNull(request.getMbti()))
+                .job(trimToNull(request.getJob()))
+                .signupCompleted(true)
+                .build();
 
         userRepository.save(userEntity);
 
@@ -332,7 +313,7 @@ public class SignupController {
         // Reject when the business number is already registered.
         CompanyRegisteredEntity existingCompany = companyRegisteredRepository.findByBusinessNumber(businessNumber);
         if (existingCompany != null
-                && COMPANY_STATUS_ACTIVE.equalsIgnoreCase(existingCompany.getCompanyStatus())) {
+                && CompanyStatus.ACTIVE.name().equalsIgnoreCase(existingCompany.getCompanyStatus())) {
             return new ResponseEntity<>("business number already registered", HttpStatus.CONFLICT);
         }
 
@@ -351,44 +332,48 @@ public class SignupController {
         LocalDateTime now = LocalDateTime.now();
 
         // Build and persist the new seller user entity.
-        SellerEntity sellerEntity = new SellerEntity();
-        sellerEntity.setLoginId(user.getUsername());
-        sellerEntity.setName(user.getName());
-        sellerEntity.setPhone(storedPhone);
-        sellerEntity.setRole(ROLE_SELLER_OWNER);
-        sellerEntity.setSellerStatus(SELLER_STATUS_PENDING);
-        sellerEntity.setCreatedAt(now);
-        sellerEntity.setUpdatedAt(now);
+        SellerEntity sellerEntity = SellerEntity.builder()
+                .loginId(user.getUsername())
+                .name(user.getName())
+                .phone(storedPhone)
+                .role(SellerRole.ROLE_SELLER_OWNER.name())
+                .sellerStatus(SellerStatus.PENDING.name())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
         sellerRepository.save(sellerEntity);
 
         // Store the registered company for duplicate checks.
-        CompanyRegisteredEntity companyRegistered = new CompanyRegisteredEntity();
-        companyRegistered.setCompanyName(companyName);
-        companyRegistered.setBusinessNumber(businessNumber);
-        companyRegistered.setSellerId(sellerEntity.getId());
-        companyRegistered.setCreatedAt(now);
-        companyRegistered.setCompanyStatus(COMPANY_STATUS_ACTIVE);
+        CompanyRegisteredEntity companyRegistered = CompanyRegisteredEntity.builder()
+                .companyName(companyName)
+                .businessNumber(businessNumber)
+                .sellerId(sellerEntity.getId())
+                .createdAt(now)
+                .companyStatus(CompanyStatus.ACTIVE.name())
+                .build();
 
         companyRegisteredRepository.save(companyRegistered);
 
         // Store seller review submission details.
-        SellerRegisterEntity sellerRegister = new SellerRegisterEntity();
-        sellerRegister.setPlanFile(planFile);
-        sellerRegister.setSellerId(sellerEntity.getId());
-        sellerRegister.setDescription(description);
-        sellerRegister.setCompanyName(companyName);
+        SellerRegisterEntity sellerRegister = SellerRegisterEntity.builder()
+                .planFile(planFile)
+                .sellerId(sellerEntity.getId())
+                .description(description)
+                .companyName(companyName)
+                .build();
 
         sellerRegisterRepository.save(sellerRegister);
 
         // Assign initial seller grade in review status.
-        SellerGradeEntity sellerGrade = new SellerGradeEntity();
-        sellerGrade.setGrade(DEFAULT_SELLER_GRADE);
-        sellerGrade.setGradeStatus(SELLER_GRADE_STATUS_REVIEW);
-        sellerGrade.setCreatedAt(now);
-        sellerGrade.setUpdatedAt(now);
-        sellerGrade.setExpiredAt(now.plusYears(1));
-        sellerGrade.setCompanyId(companyRegistered.getId());
+        SellerGradeEntity sellerGrade = SellerGradeEntity.builder()
+                .grade(SellerGrade.C.name())
+                .gradeStatus(SellerGradeStatus.REVIEW.name())
+                .createdAt(now)
+                .updatedAt(now)
+                .expiredAt(now.plusYears(1))
+                .companyId(companyRegistered.getId())
+                .build();
 
         sellerGradeRepository.save(sellerGrade);
 
@@ -419,14 +404,14 @@ public class SignupController {
         }
 
         // Validate invitation status.
-        if (!INVITATION_STATUS_PENDING.equalsIgnoreCase(invitation.getStatus())) {
+        if (!InvitationStatus.PENDING.name().equalsIgnoreCase(invitation.getStatus())) {
             return new ResponseEntity<>("invitation already used", HttpStatus.CONFLICT);
         }
 
         // Validate invitation expiration.
         LocalDateTime now = LocalDateTime.now();
         if (invitation.getExpiredAt() != null && invitation.getExpiredAt().isBefore(now)) {
-            invitation.setStatus(INVITATION_STATUS_EXPIRED);
+            invitation.setStatus(InvitationStatus.EXPIRED.name());
             invitation.setUpdatedAt(now);
             invitationRepository.save(invitation);
             return new ResponseEntity<>("invitation expired", HttpStatus.GONE);
@@ -446,19 +431,20 @@ public class SignupController {
         }
 
         // Build and persist the new manager seller entity.
-        SellerEntity sellerEntity = new SellerEntity();
-        sellerEntity.setLoginId(user.getUsername());
-        sellerEntity.setName(user.getName());
-        sellerEntity.setPhone(storedPhone);
-        sellerEntity.setRole(ROLE_SELLER_MANAGER);
-        sellerEntity.setSellerStatus(SELLER_STATUS_ACTIVE);
-        sellerEntity.setCreatedAt(now);
-        sellerEntity.setUpdatedAt(now);
+        SellerEntity sellerEntity = SellerEntity.builder()
+                .loginId(user.getUsername())
+                .name(user.getName())
+                .phone(storedPhone)
+                .role(SellerRole.ROLE_SELLER_MANAGER.name())
+                .sellerStatus(SellerStatus.ACTIVE.name())
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
         sellerRepository.save(sellerEntity);
 
         // Mark invitation as accepted after successful signup.
-        invitation.setStatus(INVITATION_STATUS_ACCEPTED);
+        invitation.setStatus(InvitationStatus.ACCEPTED.name());
         invitation.setUpdatedAt(now);
         invitationRepository.save(invitation);
 
@@ -527,5 +513,19 @@ public class SignupController {
             return null;
         }
         return trimmed;
+    }
+
+    // Parse member type input into enum value.
+    private MemberType parseMemberType(String memberType) {
+        // Upper-cased member type value for enum mapping.
+        String normalized = memberType == null ? null : memberType.trim().toUpperCase();
+        if (normalized == null || normalized.isEmpty()) {
+            return null;
+        }
+        try {
+            return MemberType.valueOf(normalized);
+        } catch (IllegalArgumentException ex) {
+            return null;
+        }
     }
 }

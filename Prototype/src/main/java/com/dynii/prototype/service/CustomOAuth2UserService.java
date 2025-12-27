@@ -51,12 +51,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         if (existData == null && existSeller == null) {
 
             // Build user info for a pending signup user.
-            UserDTO userDTO = new UserDTO();
-            userDTO.setUsername(username);
-            userDTO.setName(oAuth2Response.getName());
-            userDTO.setEmail(oAuth2Response.getEmail());
-            userDTO.setRole("ROLE_GUEST");
-            userDTO.setNewUser(true);
+            UserDTO userDTO = UserDTO.builder()
+                    .username(username)
+                    .name(oAuth2Response.getName())
+                    .email(oAuth2Response.getEmail())
+                    .role("ROLE_GUEST")
+                    .newUser(true)
+                    .build();
 
             return new CustomOAuth2User(userDTO);
         }
@@ -67,12 +68,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             userRepository.save(existData);
 
-            UserDTO userDTO = new UserDTO();
-            userDTO.setUsername(existData.getUsername());
-            userDTO.setName(oAuth2Response.getName());
-            userDTO.setEmail(oAuth2Response.getEmail());
-            userDTO.setRole(existData.getRole());
-            userDTO.setNewUser(false);
+            UserDTO userDTO = UserDTO.builder()
+                    .username(existData.getUsername())
+                    .name(oAuth2Response.getName())
+                    .email(oAuth2Response.getEmail())
+                    .role(existData.getRole())
+                    .newUser(false)
+                    .build();
 
             return new CustomOAuth2User(userDTO);
         }
@@ -83,12 +85,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
             sellerRepository.save(existSeller);
 
-            UserDTO userDTO = new UserDTO();
-            userDTO.setUsername(existSeller.getLoginId());
-            userDTO.setName(existSeller.getName());
-            userDTO.setEmail(oAuth2Response.getEmail());
-            userDTO.setRole(existSeller.getRole());
-            userDTO.setNewUser(false);
+            UserDTO userDTO = UserDTO.builder()
+                    .username(existSeller.getLoginId())
+                    .name(existSeller.getName())
+                    .email(oAuth2Response.getEmail())
+                    .role(existSeller.getRole())
+                    .newUser(false)
+                    .build();
 
             return new CustomOAuth2User(userDTO);
         }

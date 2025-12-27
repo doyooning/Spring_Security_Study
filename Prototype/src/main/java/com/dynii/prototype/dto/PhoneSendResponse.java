@@ -1,10 +1,12 @@
 package com.dynii.prototype.dto;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
 public class PhoneSendResponse {
 
     // Response message for the phone send request.

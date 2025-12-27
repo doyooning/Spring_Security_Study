@@ -4,6 +4,8 @@ import com.dynii.prototype.dto.CustomOAuth2User;
 import com.dynii.prototype.entity.InvitationEntity;
 import com.dynii.prototype.entity.SellerEntity;
 import com.dynii.prototype.entity.UserEntity;
+import com.dynii.prototype.enums.InvitationStatus;
+import com.dynii.prototype.enums.SellerRole;
 import com.dynii.prototype.repository.InvitationRepository;
 import com.dynii.prototype.repository.SellerRepository;
 import com.dynii.prototype.repository.UserRepository;
@@ -34,34 +36,15 @@ import java.util.UUID;
 @RequestMapping("/api/invitations")
 public class InvitationController {
 
-    // Owner role allowed to send invitations.
-    private static final String ROLE_SELLER_OWNER = "ROLE_SELLER_OWNER";
-
-    // Invitation status for pending invites.
-    private static final String INVITATION_STATUS_PENDING = "PENDING";
-
-    // Invitation status for accepted invites.
-    private static final String INVITATION_STATUS_ACCEPTED = "ACCEPTED";
-
-    // Invitation status for expired invites.
-    private static final String INVITATION_STATUS_EXPIRED = "EXPIRED";
-
     // Maximum number of invitations allowed per owner.
     private static final int INVITATION_LIMIT = 2;
 
     // Invitation expiration window in hours.
     private static final long INVITATION_EXPIRY_HOURS = 24L;
 
-    // Repository for invitation persistence.
     private final InvitationRepository invitationRepository;
-
-    // Repository for seller accounts.
     private final SellerRepository sellerRepository;
-
-    // Repository for user accounts to prevent duplicate invitations.
     private final UserRepository userRepository;
-
-    // Email sender for invitation links.
     private final InviteEmailService inviteEmailService;
 
     // Create a new seller invitation and email the link.
@@ -78,7 +61,7 @@ public class InvitationController {
 
         // Extract current user role for authorization.
         String role = user.getAuthorities().iterator().next().getAuthority();
-        if (!ROLE_SELLER_OWNER.equals(role)) {
+        if (!SellerRole.ROLE_SELLER_OWNER.name().equals(role)) {
             return new ResponseEntity<>("owner role required", HttpStatus.FORBIDDEN);
         }
 
@@ -91,7 +74,7 @@ public class InvitationController {
         // Reject duplicate invitations for the same email.
         if (invitationRepository.existsByEmailAndStatusIn(
                 email,
-                List.of(INVITATION_STATUS_PENDING, INVITATION_STATUS_ACCEPTED))
+                List.of(InvitationStatus.PENDING.name(), InvitationStatus.ACCEPTED.name()))
         ) {
             return new ResponseEntity<>("duplicate invitation", HttpStatus.CONFLICT);
         }
@@ -111,7 +94,7 @@ public class InvitationController {
         // Enforce invitation limit per owner seller.
         long inviteCount = invitationRepository.countBySellerIdAndStatusIn(
                 ownerSeller.getId(),
-                List.of(INVITATION_STATUS_PENDING, INVITATION_STATUS_ACCEPTED)
+                List.of(InvitationStatus.PENDING.name(), InvitationStatus.ACCEPTED.name())
         );
         if (inviteCount >= INVITATION_LIMIT) {
             return new ResponseEntity<>("invitation limit reached", HttpStatus.CONFLICT);
@@ -127,14 +110,15 @@ public class InvitationController {
         String token = UUID.randomUUID() + "-" + expiresAt.toEpochSecond(ZoneOffset.UTC);
 
         // Invitation record for persistence.
-        InvitationEntity invitation = new InvitationEntity();
-        invitation.setEmail(email);
-        invitation.setCreatedAt(now);
-        invitation.setUpdatedAt(now);
-        invitation.setExpiredAt(expiresAt);
-        invitation.setStatus(INVITATION_STATUS_PENDING);
-        invitation.setToken(token);
-        invitation.setSellerId(ownerSeller.getId());
+        InvitationEntity invitation = InvitationEntity.builder()
+                .email(email)
+                .createdAt(now)
+                .updatedAt(now)
+                .expiredAt(expiresAt)
+                .status(InvitationStatus.PENDING.name())
+                .token(token)
+                .sellerId(ownerSeller.getId())
+                .build();
 
         invitationRepository.save(invitation);
 
@@ -168,14 +152,14 @@ public class InvitationController {
         }
 
         // Return conflict for already used invitations.
-        if (!INVITATION_STATUS_PENDING.equalsIgnoreCase(invitation.getStatus())) {
+        if (!InvitationStatus.PENDING.name().equalsIgnoreCase(invitation.getStatus())) {
             return new ResponseEntity<>("invitation already used", HttpStatus.CONFLICT);
         }
 
         // Mark expired invitations and report error.
         LocalDateTime now = LocalDateTime.now();
         if (invitation.getExpiredAt() != null && invitation.getExpiredAt().isBefore(now)) {
-            invitation.setStatus(INVITATION_STATUS_EXPIRED);
+            invitation.setStatus(InvitationStatus.EXPIRED.name());
             invitation.setUpdatedAt(now);
             invitationRepository.save(invitation);
             return new ResponseEntity<>("invitation expired", HttpStatus.GONE);

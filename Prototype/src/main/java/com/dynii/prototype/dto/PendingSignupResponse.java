@@ -1,10 +1,12 @@
 package com.dynii.prototype.dto;
 
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@Builder
 public class PendingSignupResponse {
 
     // Username derived from provider and providerId.
