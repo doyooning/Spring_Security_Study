@@ -9,7 +9,6 @@ import com.dynii.prototype.entity.SellerRegisterEntity;
 import com.dynii.prototype.entity.UserEntity;
 import com.dynii.prototype.enums.CompanyStatus;
 import com.dynii.prototype.enums.InvitationStatus;
-import com.dynii.prototype.enums.MemberType;
 import com.dynii.prototype.enums.SellerGrade;
 import com.dynii.prototype.enums.SellerGradeStatus;
 import com.dynii.prototype.enums.SellerRole;
@@ -229,17 +228,17 @@ public class SignupController {
             return new ResponseEntity<>("member type required", HttpStatus.BAD_REQUEST);
         }
 
-        // Parsed member type for signup branching.
-        MemberType memberType = parseMemberType(memberTypeRaw);
+        // Normalized member type for signup branching.
+        String memberType = normalizeMemberType(memberTypeRaw);
         if (memberType == null) {
             return new ResponseEntity<>("unsupported member type", HttpStatus.BAD_REQUEST);
         }
 
-        if (MemberType.GENERAL.equals(memberType)) {
+        if ("GENERAL".equals(memberType)) {
             return completeGeneralSignup(user, request, response, session, storedPhone);
         }
 
-        if (MemberType.SELLER.equals(memberType)) {
+        if ("SELLER".equals(memberType)) {
             return completeSellerSignup(user, request, response, session, storedPhone);
         }
 
@@ -259,12 +258,9 @@ public class SignupController {
                 .username(user.getUsername())
                 .name(user.getName())
                 .email(user.getEmail())
-                .role("ROLE_USER")
-                .memberType(MemberType.GENERAL.name())
-                .phoneNumber(storedPhone)
+                .role("ROLE_USER")                .phoneNumber(storedPhone)
                 .mbti(trimToNull(request.getMbti()))
                 .job(trimToNull(request.getJob()))
-                .signupCompleted(true)
                 .build();
 
         userRepository.save(userEntity);
@@ -515,17 +511,21 @@ public class SignupController {
         return trimmed;
     }
 
-    // Parse member type input into enum value.
-    private MemberType parseMemberType(String memberType) {
-        // Upper-cased member type value for enum mapping.
+    // Normalize member type input for routing.
+    private String normalizeMemberType(String memberType) {
+        // Upper-cased member type value for validation.
         String normalized = memberType == null ? null : memberType.trim().toUpperCase();
         if (normalized == null || normalized.isEmpty()) {
             return null;
         }
-        try {
-            return MemberType.valueOf(normalized);
-        } catch (IllegalArgumentException ex) {
-            return null;
+        if ("GENERAL".equals(normalized) || "SELLER".equals(normalized)) {
+            return normalized;
         }
+        return null;
     }
 }
+
+
+
+
+

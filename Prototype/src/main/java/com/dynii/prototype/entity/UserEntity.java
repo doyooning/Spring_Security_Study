@@ -32,15 +32,14 @@ public class UserEntity {
     // Phone number provided during signup flow.
     private String phoneNumber;
 
-    // Member type selected during signup (e.g., GENERAL, SELLER).
-    private String memberType;
-
     // Optional MBTI for general members.
     private String mbti;
 
     // Optional job for general members.
     private String job;
 
-    // Flag to indicate whether signup is fully completed.
-    private boolean signupCompleted;
 }
+
+
+
+
